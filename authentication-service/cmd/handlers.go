@@ -8,6 +8,34 @@ import (
 	"net/http"
 )
 
+func (app *Config) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
+
+	// var requestPayload struct {
+	// 	Email     string `json:"email"`
+	// 	Password  string `json:"password"`
+	// 	FirstName string `json:"first_name"`
+	// 	LastName  string `json:"last_name"`
+	// 	Active    int    `json:"user_active"`
+	// }
+	// err := app.readJSON(w, r, &requestPayload)
+	// if err != nil {
+	// 	app.errorJSON(w, err, http.StatusBadRequest)
+	// 	return
+	// }
+
+	users, err := app.Models.User.GetAll()
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+	}
+
+	payload := jsonResponse{
+		Error: false,
+		Data:  users,
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+
+}
+
 func (app *Config) Authenticate(w http.ResponseWriter, r *http.Request) {
 	var requestPayload struct {
 		Email    string `json:"email"`
