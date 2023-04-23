@@ -13,6 +13,7 @@ func (app *Config) Routes() http.Handler {
 	mux.Use(middleware.Heartbeat("/ping"))
 	mux.Post("/authenticate", app.Authenticate)
 	mux.Get("/users", app.GetAllUsersHandler)
+	mux.Delete("/delete", app.DeleteUserByIdHandler)
 
 	return mux
 }

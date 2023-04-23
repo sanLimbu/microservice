@@ -8,6 +8,30 @@ import (
 	"net/http"
 )
 
+func (app *Config) DeleteUserByIdHandler(w http.ResponseWriter, r *http.Request) {
+
+	var requestPayload struct {
+		Id int `json:"id"`
+	}
+
+	err := app.readJSON(w, r, &requestPayload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	err = app.Models.User.DeleteByID(requestPayload.Id)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: fmt.Sprintf("Logged in user %d", requestPayload.Id),
+	}
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
 func (app *Config) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 	// var requestPayload struct {
@@ -37,6 +61,7 @@ func (app *Config) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Config) Authenticate(w http.ResponseWriter, r *http.Request) {
+
 	var requestPayload struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`

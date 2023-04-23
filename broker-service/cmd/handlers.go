@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/rpc"
 )
@@ -13,11 +14,16 @@ type RequestPayload struct {
 	Action string      `json:"action"`
 	Auth   AuthPayload `json:"auth,omitempty"`
 	Log    LogPayload  `json:"log,omitempty"`
+	User   UserPayload `json:"user,omitempty"`
 }
 
 type AuthPayload struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type UserPayload struct {
+	Id int `json:"id"`
 }
 
 type LogPayload struct {
@@ -49,15 +55,70 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 	switch requestPayload.Action {
 	case "auth":
 		app.authenticate(w, requestPayload.Auth)
+
 	case "log":
 		//app.logItem(w, requestPayload.Log)
 		app.logEventViaRabbit(w, requestPayload.Log)
 		//app.logItemViaRPC(w, requestPayload.Log)
 	case "users":
 		app.users(w)
+
+	case "delete":
+		app.deleteUserById(w, requestPayload.User)
+
 	default:
 		app.errorJSON(w, errors.New("unknown action"))
 	}
+}
+
+func (app *Config) deleteUserById(w http.ResponseWriter, a UserPayload) {
+
+	jsonData, _ := json.MarshalIndent(a, "", "\t")
+
+	request, err := http.NewRequest("DELETE", "http://authentication-service/delete", bytes.NewBuffer(jsonData))
+
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	defer response.Body.Close()
+
+	// make sure we get back the correct status code
+	if response.StatusCode == http.StatusUnauthorized {
+		app.errorJSON(w, errors.New("invalid credentials"))
+		return
+	} else if response.StatusCode != http.StatusAccepted {
+		app.errorJSON(w, errors.New("error calling user service"))
+		return
+	}
+
+	// create a varabiel we'll read response.Body into
+	var jsonFromService jsonResponse
+
+	// decode the json from the auth service
+	err = json.NewDecoder(response.Body).Decode(&jsonFromService)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	if jsonFromService.Error {
+		app.errorJSON(w, err, http.StatusUnauthorized)
+		return
+	}
+
+	var payload jsonResponse
+	payload.Error = false
+	payload.Message = fmt.Sprintf("Deleted %d", a.Id)
+	app.writeJSON(w, http.StatusAccepted, payload)
+
 }
 
 func (app *Config) users(w http.ResponseWriter) {
